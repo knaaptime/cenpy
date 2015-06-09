@@ -1,18 +1,26 @@
 import requests as r
 
-raw_APIs = r.get('http://api.census.gov/data.json').json()
+raw_cAPIs = r.get('http://api.census.gov/data.json').json()
 
-APIs = {entry['identifier']: {key: value for key, value in entry.iteritems() if key != entry['identifier']} for entry in raw_APIs}
+cAPIs = {entry['identifier']: {key: value for key, value in entry.iteritems() if key != entry['identifier']} for entry in raw_cAPIs}
 
-def available(verbose=False):
+def _qjson(st):
+    return r.get(st+'?f=json')
+
+tiger_url = 'http://tigerweb.geo.census.gov/arcgis/rest/services/TIGERweb'
+tigers = [x.split('/')[-1] for x in [y['name'] for y in _qjson(tiger_url).json()['services']]]
+
+def available(tiger = True, verbose=False):
     """
     Returns available identifiers for Census Data APIs. 
     NOTE: we do not support the Economic Indicators Time Series API yet.
 
     Arguments
     ==========
+    tiger   : boolean governing whether to provide tiger spatial data api
     verbose : boolean governing whether to provide ID and title
               or just ID
+    
 
     Returns
     ========
@@ -20,9 +28,19 @@ def available(verbose=False):
     identifiers (if verbose: and dataset names)
 
     """
-    av_apis = [api for api in APIs.keys() if 'eits' not in api]
+    av_apis = [api for api in cAPIs.keys() if 'eits' not in api]
+    
+    if tiger:
+        av_apis.extend(x for x in tigers)
+    
     if verbose:
-        return {idx: APIs[idx]['title'] for idx in av_apis}
+        rdict = dict()
+        for name in av_apis:
+            if name in cAPIs.keys():
+                rdict.update({name:cAPIs[name]['title']})
+            else:
+                rdict.update({name:'TIGERweb MapServer'})
+        return rdict
     else:
         return av_apis
 
@@ -44,7 +62,11 @@ def explain(identifier=None, verbose=False):
     if identifier is None:
         raise ValueError('No identifier provided. Use available() to discover identifiers')
     elif not verbose:
-        return {APIs[identifier]['title']: APIs[identifier]['description']}
+        if identifier not in cAPIs.keys():
+            desc = _qjson(tiger_url + '/' + identifier + '/' + 'MapServer').json()['description']
+        else:
+            desc = cAPIs[identifier]['description']
+        return {identifier: desc}
     else:
-        APIs[identifier]
+        cAPIs[identifier]
 
