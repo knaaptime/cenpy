@@ -84,6 +84,10 @@ class Connection():
         the end. Sometimes, the USCB might frown on large-column queries,
         so be careful with this. Cenpy is not liable for your key getting
         banned if you query tens of thousands of columns at once. 
+
+        If your query is rather large, or you're getting errors about your
+        search hierarchy not being found or having many matches, specify a
+        geoLevelId in the keyword args.
         """
 
         self.last_query = self.cxn
@@ -146,3 +150,43 @@ class Connection():
                 noreps = [x for x in tdf.columns if x not in result.columns]
                 result = pd.concat([result, tdf[noreps]], axis=1)
             return result
+
+    def _biggeomq(self, id_type='fips', verbose='', geoLevelId=None,
+                  geo_unit='us:00', geo_filter={}, apikey=None, **kwargs):
+        if geoLevelId is None:
+            geo_unit_base = geo_unit.split(':')[0]
+            if len(verbose) > 2:
+                print 'Starting query identification'
+            targetfilt = [geo_unit_base == x for x in self.geographies[id_type]['name']]
+            lenfilt = [len(geo_filter.keys()) == len(x) for x in self.geographies[id_type]['requires'].fillna([])]
+            idfilt = [sum([1 for x, y in geo_filter.keys(), reqs if x == y]) == len(reqs) \
+                             for reqs in self.geographies[id_type]['requires'].fillna([])]
+            filt = [targ and leng and idx for targ, leng, idx in zip(targetfilt, lenfilt, idfilt)]
+            reqs = self.geographies[id_type][filt]
+        else:
+            reqs = self.geographies[id_type][self.geographies[id_type]['geoLevelId'] == geoLevelId]
+        
+        if reqs.shape[0] < 1:
+            raise KeyError('No geographic hierarchy found matching unit and filter provided')
+        elif reqs.shape[0] > 1:
+            raise KeyError('Many geographic hierarchies found matching unit and filter provided')
+            
+        wilds = []
+         
+        wilds.extend([k for k in reqs['requires'] if '*' == geo_filter[k]])
+
+        if '*' in geo_unit:
+        	wilds.append(geo_unit)
+        
+        sdict= {k:v for k,v in geo_filter.iteritems() if k not in wilds}
+        topqueue = self.query(cols=['NAME'], geo_unit=':'.join(top, '*'), geo_filter=sdict)[topqueue].tolist()
+        
+        while queue:
+            curr = queue.pop(0)
+            level = self.query(cols=['NAME'], geo_unit=':'.join(top, '*'), geo_filter=sdict)[curr].tolist()
+            
+
+
+
+        
+
