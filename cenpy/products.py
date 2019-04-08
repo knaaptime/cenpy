@@ -409,7 +409,9 @@ def _fuzzy_match(matchtarget, matchlist):
                              'placename1-placename2, state1-state2-state3'.format(target))
 
     table = pandas.DataFrame({'target':matchlist})
-    table['score'] = table.target.apply(lambda x: fuzz.partial_ratio(target.strip(), x))
+    table['score'] = table.target\
+                          .apply(lambda x: fuzz.partial_ratio(target.strip().lower(), 
+                                                              x.lower()))
     if len(split) == 1:
         if (table.score == table.score.max()).sum() > 1:
             ixmax, rowmax = _break_ties(matchtarget, table)
@@ -447,7 +449,8 @@ def _break_ties(matchtarget, table):
         target, state = split
     else: 
         target = split[0]
-    table['score2'] = table.target.apply(lambda x: fuzz.ratio(target.strip(), x))
+    table['score2'] = table.target.apply(lambda x: fuzz.ratio(target.strip().lower(), 
+                                                              x.lower()))
     among_winners = table[table.score == table.score.max()]
     double_winners = among_winners[among_winners.score2 == among_winners.score2.max()]
     if double_winners.shape[0] > 1:
